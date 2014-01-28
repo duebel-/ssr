@@ -93,7 +93,7 @@ my $vm = Vim::find_entity_views(view_type => 'VirtualMachine');
 foreach my $vm_view (@{$vm}) {
   my $vm_name     = $vm_view->{summary}->{config}->{name};
   my $vm_snaptree = $vm_view->{snapshot};
-  next unless defined $vm_snaptree;
+  next unless ( defined $vm_snaptree && ($vm_view->runtime->powerState->val eq 'poweredOn') );
   check_snaplist($vm_name, $vm_snaptree->{rootSnapshotList});
 }
 
