@@ -1,6 +1,6 @@
 ssr
 ===
 
-=Nagios check plugin for VMA: check_vmstorage.pl
++ Nagios check plugin for VMA: **check_vmstorage.pl**
 
-=Generator for ghettoVCB2g's vmlist file: generate_vmlist.pl
++ Generator for ghettoVCB2g's vmlist file: **generate_vmlist.pl**
