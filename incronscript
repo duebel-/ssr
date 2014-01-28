@@ -1,0 +1,111 @@
+#!/bin/bash
+# $1 path to folder
+# $2 file/folder
+# $3 symbol
+
+#       IN_ACCESS           File was accessed (read) (*)
+#       IN_ATTRIB           Metadata changed (permissions, timestamps, extended attributes, etc.) (*)
+#       IN_CLOSE_WRITE      File opened for writing was closed (*)
+#       IN_CLOSE_NOWRITE    File not opened for writing was closed (*)
+#       IN_CREATE           File/directory created in watched directory (*)
+#       IN_DELETE           File/directory deleted from watched directory (*)
+#       IN_DELETE_SELF           Watched file/directory was itself deleted
+#       IN_MODIFY           File was modified (*)
+#       IN_MOVE_SELF        Watched file/directory was itself moved
+#       IN_MOVED_FROM       File moved out of watched directory (*)
+#       IN_MOVED_TO         File moved into watched directory (*)
+#       IN_OPEN             File was opened (*)
+#
+#       When monitoring a directory, the events marked with an asterisk (*) above can occur for files in the directory, in which case the name field in the returned event  data  identifies  the
+#       name of the file within the directory.
+#
+#       The  IN_ALL_EVENTS  symbol  is defined as a bit mask of all of the above events. Two additional convenience symbols are IN_MOVE, which is a combination of IN_MOVED_FROM and IN_MOVED_TO,
+#       and IN_CLOSE which combines IN_CLOSE_WRITE and IN_CLOSE_NOWRITE.
+#
+#       The following further symbols can be specified in the mask:
+#
+#       IN_DONT_FOLLOW      Don't dereference pathname if it is a symbolic link
+#       IN_ONESHOT          Monitor pathname for only one event
+#       IN_ONLYDIR          Only watch pathname if it is a directory
+#
+#       Additionaly, there is a symbol which doesn't appear in the inotify symbol set. It it IN_NO_LOOP. This symbol disables monitoring events until  the  current  one  is  completely  handled
+#       (until its child process exits).
+
+SYMBOLS="IN_CREATE,IN_DELETE,IN_MOVED_FROM"
+
+LOGGER="logger -t $0[$$] "
+PIDFILE=/var/run/incronscriptsave
+
+case "$3" in
+ IN_CREATE,IN_ISDIR)
+  NEWFOLDER=$( echo "$1/$2" )
+  $LOGGER "incrontab += $NEWFOLDER $SYMBOLS $0 \$@ \$# \$%"
+  printf "%q %s\n" "$NEWFOLDER" "$SYMBOLS $0 \$@ \$# \$%" >> /var/spool/incron/$LOGNAME
+ ;;
+
+ IN_DELETE,IN_ISDIR)
+  TAB=$(cat /var/spool/incron/$LOGNAME)
+  while ( ! [[  "$TAB" =~ ^\/ ]] )
+  do
+   sleep 1
+   TAB=$(cat /var/spool/incron/$LOGNAME)
+  done
+  $LOGGER "incrontab -= $1/$2 ..."
+  echo "$TAB" | grep -v "^$1/$2" > /var/spool/incron/$LOGNAME
+ ;;
+
+ IN_MOVED_FROM,IN_ISDIR)
+  OLDFOLDER=$1/$2
+  TAB=$(cat /var/spool/incron/$LOGNAME)
+  while ( ! [[  "$TAB" =~ ^\/ ]] )
+  do
+   #cannot read incrontab
+   sleep 1
+   TAB=$(cat /var/spool/incron/$LOGNAME)
+  done
+  $LOGGER "incrontab -= $OLDFOLDER"
+  echo "$TAB" | grep -v "^$1/$2" > /var/spool/incron/$LOGNAME
+
+  if [ -d $1/${2}--1 ]
+  then
+   NEWFOLDER=$1/${2}--1
+   NAME=$(basename $1)
+   if [ -f $NEWFOLDER/*.vmx ]
+   then #vmware directory
+    i=1
+    #wait for free pidfile, max. 3 running procs
+    while [ $( ls $PIDFILE.* | wc -l ) -ge 3 ]
+    do
+     $LOGGER "Sleeping... $i"
+     sleep 30
+     ((i += 1))
+    done
+    #create pidfile
+    touch $PIDFILE.$$
+    #real backup
+    $LOGGER "nsr += $1"
+    $LOGGER "calling /path/to/backupprogram $1"
+    /path/to/backupprogram "$1"
+    ERR=$?
+    if [ $ERR -eq 0 ]
+    then
+     #cleanup
+     rm $PIDFILE.$$
+    else
+     $LOGGER "/path/to/backupprogram $1: error $FEHLER"
+    fi
+   else
+    $LOGGER "File $NEWFOLDER/$NAME.vmx not found. No backup done."
+   fi
+  else
+   $LOGGER "Directory $1/${2}--1 not found."
+  fi
+ ;;
+
+ IN_CREATE)
+ ;;
+
+ IN_DELETE)
+ ;;
+
+esac
