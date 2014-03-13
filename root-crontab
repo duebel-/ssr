@@ -1,0 +1,5 @@
+59 4 * * * service apache2 restart
+58 4 * * * delete_call_histories.bash
+58 14 * * * delete_old_sessions.bash
+59 */4 * * * sync_gemeinschaft_2_funambol.bash
+10 9 * * * find /var/backups/GS5 -mtime +1 -type f -name GS5-backup-\* -delete
